@@ -9,5 +9,6 @@
 上传成功后你就会拥有自己的数据库，涵盖查看，增加和删除的功能：  
 <img width="1449" height="859" alt="图片" src="https://github.com/user-attachments/assets/c659dccb-81bc-4c61-8e97-f774041e1aee" />  
 然后就可以询问任何你想要询问或者审查的任务：  
-<img width="1458" height="930" alt="图片" src="https://github.com/user-attachments/assets/bf1ce999-52c7-4a16-90fb-561b1023454e" />
+<img width="1471" height="773" alt="图片" src="https://github.com/user-attachments/assets/d017ec5a-7c5b-45f7-abcb-71d8d0a53118" />
+
 
