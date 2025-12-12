@@ -1,6 +1,7 @@
 # HunyuanocrRAG
 这是一款基于OCR提取信息的RAG系统，能够帮助用户快速完成信息的查询和文件匹配，减少人工核对的压力。  
 <div align="center">
+  <img width="397" height="291" alt="图片" src="https://github.com/user-attachments/assets/aeeaa808-f731-4b08-804c-a25500980c6a" />  
   <img width="472" height="453" alt="图片" src="https://github.com/user-attachments/assets/ab26dc62-9bcb-4923-b20f-4cd0bfa56546" />
 </div>  
 ## 1 数据集介绍
