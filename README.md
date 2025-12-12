@@ -2,7 +2,7 @@
 这是一款基于OCR提取信息的RAG系统，能够帮助用户快速完成信息的查询和文件匹配，减少人工核对的压力。
 ## 1 数据集介绍
 个人信息的文件夹里面是个人相关的证件和签署的文件：  
-<img width="870" height="461" alt="图片" src="https://github.com/user-attachments/assets/41afa778-f293-46ce-907a-49220c6b18b2" />  
+<img width="871" height="460" alt="图片" src="https://github.com/user-attachments/assets/a1f4678b-ae31-4590-aa4b-e83c47189884" />  
 ## 2 功能展示  
 首先用户需要选择文件夹上传信息：  
 <img width="1105" height="647" alt="图片" src="https://github.com/user-attachments/assets/3b71b539-c5a7-4b99-a5f5-e3fa03153701" />  
