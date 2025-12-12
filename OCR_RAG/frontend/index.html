@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文档智能助手</title>
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { 
+            padding-top: 20px; 
+            background-color: #f8f9fa; 
+            font-family: "SimSun", "Times New Roman", serif; 
+        }
+        .chat-container { height: 600px; overflow-y: auto; background: white; border: 1px solid #dee2e6; border-radius: 5px; padding: 20px; margin-bottom: 20px; }
+        .message { margin-bottom: 15px; }
+        .user-message { text-align: right; }
+        .user-message .content { background-color: #0d6efd; color: white; display: inline-block; padding: 10px 15px; border-radius: 15px 15px 0 15px; }
+        .bot-message { text-align: left; }
+        .bot-message .content { background-color: #f1f0f0; color: black; display: inline-block; padding: 10px 15px; border-radius: 15px 15px 15px 0; max-width: 80%; }
+        .thinking { 
+            font-size: 0.85em; 
+            color: #6c757d; 
+            border-left: 3px solid #dee2e6; 
+            padding-left: 10px; 
+            margin-bottom: 5px; 
+            display: block; 
+            font-family: "SimSun", "Times New Roman", serif;
+        }
+        .upload-area { border: 2px dashed #dee2e6; padding: 30px; text-align: center; background: white; border-radius: 5px; margin-bottom: 20px; }
+        
+        input, textarea, select, button {
+            font-family: "SimSun", "Times New Roman", serif;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2 class="text-center mb-4">📄 文档智能助手</h2>
+
+    <ul class="nav nav-tabs mb-3" id="myTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="chat-tab" data-bs-toggle="tab" data-bs-target="#chat" type="button" role="tab">对话</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="summary-tab" data-bs-toggle="tab" data-bs-target="#summary" type="button" role="tab">数据库概览</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab">上传文件夹</button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="myTabContent">
+        <!-- Chat Tab -->
+        <div class="tab-pane fade show active" id="chat" role="tabpanel">
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <select class="form-select" id="personFilter">
+                        <option value="All">筛选人: 全部</option>
+                    </select>
+                </div>
+                <div class="col-md-8 text-end">
+                    <button class="btn btn-outline-danger btn-sm" id="clearBtn">清空历史</button>
+                </div>
+            </div>
+
+            <div class="chat-container" id="chatBox">
+                <div class="text-center text-muted mt-5">开始与您的文档对话...</div>
+            </div>
+
+            <div class="input-group">
+                <input type="text" class="form-control" id="userInput" placeholder="输入问题..." onkeypress="handleEnter(event)">
+                <button class="btn btn-primary" type="button" id="sendBtn">发送</button>
+            </div>
+        </div>
+
+        <!-- Summary Tab -->
+        <div class="tab-pane fade" id="summary" role="tabpanel">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">知识库概览</h5>
+                    <button class="btn btn-sm btn-outline-primary" id="refreshSummaryBtn">刷新</button>
+                </div>
+                <div class="card-body">
+                    <div id="summaryContent">加载中...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload Tab -->
+        <div class="tab-pane fade" id="upload" role="tabpanel">
+            <div class="upload-area">
+                <h4>上传文件夹</h4>
+                <p class="text-muted">选择包含个人文档的文件夹。文件夹名称将作为初始ID。</p>
+                <input type="file" id="folderInput" webkitdirectory directory multiple class="form-control" style="max-width: 400px; margin: 0 auto;">
+                <br>
+                <button class="btn btn-success mt-3" id="uploadBtn">上传并处理</button>
+                
+                <!-- Progress Bar Container -->
+                <div id="progressContainer" class="mt-4" style="display:none;">
+                    <h5 id="progressStatus">准备中...</h5>
+                    <div class="progress" style="height: 25px;">
+                        <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%">0%</div>
+                    </div>
+                    <small id="progressDetail" class="text-muted d-block mt-2"></small>
+                </div>
+
+                <div id="uploadResult" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.bootcdn.net/ajax/libs/marked/4.3.0/marked.min.js"></script>
+<script>
+    const chatBox = document.getElementById('chatBox');
+    const userInput = document.getElementById('userInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const folderInput = document.getElementById('folderInput');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar = document.getElementById('progressBar');
+    const progressStatus = document.getElementById('progressStatus');
+    const progressDetail = document.getElementById('progressDetail');
+    const uploadResult = document.getElementById('uploadResult');
+    const personFilter = document.getElementById('personFilter');
+
+    // Load people filter
+    async function loadPeople() {
+        try {
+            const res = await fetch('/api/people');
+            const data = await res.json();
+            personFilter.innerHTML = '';
+            data.people.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.text = p.name;
+                personFilter.appendChild(opt);
+            });
+        } catch (e) {
+            console.error(e);
+        }
+    }
+    loadPeople();
+
+    // Summary Logic
+    const summaryContent = document.getElementById('summaryContent');
+    const refreshSummaryBtn = document.getElementById('refreshSummaryBtn');
+
+    async function loadSummary() {
+        summaryContent.innerHTML = '<div class="spinner-border text-primary" role="status"></div> 加载中...';
+        try {
+            const res = await fetch('/api/summary');
+            const data = await res.json();
+            
+            if (data.summary.length === 0) {
+                summaryContent.innerHTML = '<p class="text-muted">数据库中暂无文档。</p>';
+                return;
+            }
+            
+            let html = '<div class="accordion" id="summaryAccordion">';
+            data.summary.forEach((item, index) => {
+                html += `
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="heading${index}">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse${index}" aria-expanded="false" aria-controls="collapse${index}">
+                                <strong>${item.person}</strong> &nbsp; <span class="badge bg-secondary">${item.count} 文件</span>
+                            </button>
+                        </h2>
+                        <div id="collapse${index}" class="accordion-collapse collapse" aria-labelledby="heading${index}" data-bs-parent="#summaryAccordion">
+                            <div class="accordion-body">
+                                <div class="mb-3 text-end">
+                                    <input type="file" id="fileInput${index}" style="display:none;" onchange="handleSingleUpload('${item.person_id}', this)">
+                                    <button class="btn btn-sm btn-success" onclick="document.getElementById('fileInput${index}').click()">➕ 添加文件</button>
+                                </div>
+                                <ul class="list-group list-group-flush">
+                                    ${item.files.map(f => `
+                                        <li class="list-group-item small d-flex justify-content-between align-items-center">
+                                            <a href="/api/view?token=${f.token}" target="_blank" class="text-decoration-none">📄 ${f.name}</a>
+                                            <button class="btn btn-sm btn-outline-danger" onclick="deleteFile('${f.token}', '${f.name}')" title="删除文件">🗑️</button>
+                                        </li>
+                                    `).join('')}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            summaryContent.innerHTML = html;
+        } catch (e) {
+            summaryContent.innerHTML = `<div class="alert alert-danger">加载概览失败: ${e.message}</div>`;
+        }
+    }
+    
+    refreshSummaryBtn.addEventListener('click', loadSummary);
+    // Load summary when tab is clicked
+    document.getElementById('summary-tab').addEventListener('shown.bs.tab', loadSummary);
+
+    // Single File Upload Logic
+    async function handleSingleUpload(personId, input) {
+        if (input.files.length === 0) return;
+        
+        const file = input.files[0];
+        const formData = new FormData();
+        formData.append('person_id', personId);
+        formData.append('file', file);
+        
+        // Show simple loading alert or toast
+        const btn = input.nextElementSibling; // The Add button
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '⏳ 上传中...';
+        btn.disabled = true;
+        
+        try {
+            const res = await fetch('/api/add_file', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            
+            if (res.ok) {
+                alert(data.message);
+                loadSummary(); // Refresh list
+            } else {
+                alert("上传失败: " + data.message);
+            }
+        } catch (e) {
+            alert("上传出错: " + e.message);
+        }
+        
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        input.value = ''; // Reset input
+    }
+
+    // Delete File Logic
+    async function deleteFile(token, filename) {
+        if (!confirm(`确定要删除文件 "${filename}" 吗？\n此操作将同时删除文件和数据库中的记录，不可恢复。`)) {
+            return;
+        }
+        
+        try {
+            const res = await fetch('/api/delete_file', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ token: token })
+            });
+            const data = await res.json();
+            
+            if (res.ok) {
+                // alert(data.message); // Optional: less annoying if silent
+                loadSummary(); // Refresh list
+            } else {
+                alert("删除失败: " + data.message);
+            }
+        } catch (e) {
+            alert("删除出错: " + e.message);
+        }
+    }
+
+
+    // Chat Logic
+    function appendMessage(role, text, thinking = "") {
+        // If it's a new bot message (empty text), create placeholder
+        if (role === 'bot' && !document.getElementById('current-bot-msg')) {
+            const div = document.createElement('div');
+            div.className = `message ${role}-message`;
+            div.id = 'current-bot-msg';
+            
+            // Create container for thinking and content
+            div.innerHTML = `
+                <div class="content">
+                    <div id="current-thinking" class="thinking" style="display:none;">思考过程:<br></div>
+                    <div id="current-text"></div>
+                </div>`;
+            
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+            return;
+        }
+        
+        // If just appending text to existing
+        if (role === 'bot') {
+            const thinkDiv = document.getElementById('current-thinking');
+            const textDiv = document.getElementById('current-text');
+            
+            if (thinking) {
+                thinkDiv.style.display = 'block';
+                thinkDiv.innerHTML = `思考过程:<br>${thinking.replace(/\n/g, '<br>')}`;
+            }
+            textDiv.innerHTML = marked.parse(text);
+            chatBox.scrollTop = chatBox.scrollHeight;
+            return;
+        }
+
+        // User message (standard append)
+        if (chatBox.innerHTML.includes("开始与您的文档对话")) chatBox.innerHTML = "";
+        const div = document.createElement('div');
+        div.className = `message ${role}-message`;
+        div.innerHTML = `<div class="content">${marked.parse(text)}</div>`;
+        chatBox.appendChild(div);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // Chat History Storage
+    let chatHistory = [];
+
+    async function sendMessage() {
+        const query = userInput.value.trim();
+        if (!query) return;
+        
+        appendMessage('user', query);
+        userInput.value = '';
+        userInput.disabled = true;
+        
+        // Prepare for streaming response
+        appendMessage('bot', '', '思考中...'); // Initial state
+        
+        try {
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    query: query,
+                    person_filter: personFilter.value,
+                    history: chatHistory
+                })
+            });
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let rawText = "";
+            let thinking = "";
+            let answer = "";
+
+            // Typewriter State
+            let targetAnswer = "";
+            let targetThinking = "";
+            let currentAnswer = "";
+            let currentThinking = "思考中..."; 
+            let isTyping = false;
+            let thinkingStarted = false;
+            
+            function typeStep() {
+                if (!isTyping) return;
+                
+                let updated = false;
+                let busyWithThinking = false;
+                
+                // Type thinking
+                if (targetThinking) {
+                     if (!thinkingStarted) {
+                         currentThinking = "";
+                         thinkingStarted = true;
+                     }
+                     
+                    if (currentThinking.length < targetThinking.length) {
+                        currentThinking += targetThinking[currentThinking.length];
+                        updated = true;
+                        busyWithThinking = true;
+                    } else if (currentThinking.length > targetThinking.length) {
+                         currentThinking = targetThinking; 
+                         updated = true;
+                    }
+                }
+                
+                // Type answer
+                if (!busyWithThinking) {
+                    if (currentAnswer.length < targetAnswer.length) {
+                        currentAnswer += targetAnswer[currentAnswer.length];
+                        updated = true;
+                    } else if (currentAnswer.length > targetAnswer.length) {
+                        currentAnswer = targetAnswer;
+                        updated = true;
+                    }
+                }
+                
+                if (updated) {
+                    appendMessage('bot', currentAnswer, currentThinking);
+                    const charsBehind = (targetAnswer.length - currentAnswer.length) + (targetThinking.length - currentThinking.length);
+                    const delay = charsBehind > 50 ? 5 : (charsBehind > 20 ? 10 : 30);
+                    setTimeout(typeStep, delay);
+                } else {
+                    isTyping = false;
+                }
+            }
+
+            isTyping = true;
+            typeStep();
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                const chunk = decoder.decode(value, {stream: true});
+                rawText += chunk;
+                
+                // Real-time parsing of <think> tags
+                const thinkMatch = rawText.match(/<think>([\s\S]*?)<\/think>/i);
+                if (thinkMatch) {
+                    targetThinking = thinkMatch[1].trim();
+                    targetAnswer = rawText.replace(/<think>[\s\S]*?<\/think>/i, "").trim();
+                } else if (rawText.includes("<think>")) {
+                     const start = rawText.indexOf("<think>") + 7;
+                     targetThinking = rawText.substring(start).trim();
+                     targetAnswer = ""; 
+                } else {
+                    if (!rawText.includes("<think>")) {
+                         targetAnswer = rawText;
+                    }
+                }
+                
+                if (!isTyping) {
+                    isTyping = true;
+                    typeStep();
+                }
+            }
+            
+            if (!targetThinking && targetAnswer) {
+                 currentThinking = "";
+                 targetThinking = "";
+            }
+
+            while (currentAnswer !== targetAnswer || currentThinking !== targetThinking) {
+                 await new Promise(r => setTimeout(r, 10));
+                 if (!isTyping) { isTyping = true; typeStep(); }
+            }
+            
+            // Save to history
+            chatHistory.push({"role": "user", "content": query});
+            chatHistory.push({"role": "assistant", "content": targetAnswer});
+
+            document.getElementById('current-bot-msg').removeAttribute('id');
+            document.getElementById('current-thinking').removeAttribute('id');
+            document.getElementById('current-text').removeAttribute('id');
+
+        } catch (e) {
+            console.error(e);
+            document.getElementById('current-text').innerText = "错误: 无法获取响应。";
+             document.getElementById('current-bot-msg').removeAttribute('id');
+        }
+        
+        userInput.disabled = false;
+        userInput.focus();
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+    function handleEnter(e) { if (e.key === 'Enter') sendMessage(); }
+
+    clearBtn.addEventListener('click', () => {
+        chatBox.innerHTML = '<div class="text-center text-muted mt-5">开始与您的文档对话...</div>';
+        chatHistory = []; // Clear history state
+    });
+
+    // Upload Logic with Polling
+    uploadBtn.addEventListener('click', async () => {
+        if (folderInput.files.length === 0) {
+            alert("请先选择一个文件夹！");
+            return;
+        }
+
+        const formData = new FormData();
+        for (let i = 0; i < folderInput.files.length; i++) {
+            formData.append('files', folderInput.files[i]);
+        }
+
+        // Show Progress Bar
+        progressContainer.style.display = 'block';
+        uploadResult.innerHTML = '';
+        uploadBtn.disabled = true;
+        
+        // Start polling immediately
+        const pollInterval = setInterval(async () => {
+            try {
+                const res = await fetch('/api/progress');
+                const p = await res.json();
+                
+                if (p.status === 'processing') {
+                    progressStatus.innerText = "正在处理文档...";
+                    const percent = Math.round((p.processed / p.total) * 100);
+                    progressBar.style.width = percent + '%';
+                    progressBar.innerText = percent + '%';
+                    progressDetail.innerText = `正在处理: ${p.current_file} (${p.processed}/${p.total})`;
+                } else if (p.status === 'uploading') {
+                    progressStatus.innerText = "正在上传文件...";
+                    progressBar.style.width = '100%'; 
+                    progressBar.classList.add('progress-bar-striped');
+                }
+            } catch (e) {
+                console.error("Poll error", e);
+            }
+        }, 1000);
+
+        try {
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+            
+            clearInterval(pollInterval);
+            
+            if (res.ok) {
+                const data = await res.json();
+                progressBar.style.width = '100%';
+                progressBar.innerText = '100%';
+                progressStatus.innerText = "完成！";
+                progressDetail.innerText = "";
+                uploadResult.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+                loadPeople(); // Refresh filter list
+            } else {
+                uploadResult.innerHTML = `<div class="alert alert-danger">上传失败。</div>`;
+            }
+        } catch (e) {
+            clearInterval(pollInterval);
+            uploadResult.innerHTML = `<div class="alert alert-danger">错误: ${e.message}</div>`;
+        }
+        uploadBtn.disabled = false;
+    });
+
+</script>
+</body>
+</html>

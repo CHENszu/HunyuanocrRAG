@@ -1,0 +1,8 @@
+openai
+streamlit
+numpy
+pandas
+requests
+pdf2image
+faiss-cpu
+python-dotenv
